@@ -56,6 +56,8 @@
   }
   function plural(n, one, many) { return `${n} ${n === 1 ? one : many}`; }
   function stopTimer() { if (session.timer) { clearInterval(session.timer); session.timer = null; } }
+  const REIFE = { mature: ["etabliert", "teal"], trending: ["Trend", "gold"], emerging: ["aufkommend", "violet"] };
+  function reifeBadge(c) { const r = c && REIFE[c.reife]; return r ? `<span class="badge ${r[1]}" title="Reifegrad">${r[0]}</span>` : ""; }
   function typeBadge(t) { return t === "konzept" ? `<span class="badge gold">Konzept</span>` : `<span class="badge teal">Begriff</span>`; }
   function scrollTop() { window.scrollTo(0, 0); }
 
@@ -162,6 +164,28 @@
     return shuffle(list, rand);
   }
 
+  function clusterItems(deck, cl) {
+    const own = deck.cards.filter((c) => c.cl === cl.id).map((c) => ({ deck: deck.id, card: c }));
+    const refs = (cl.refs || []).map(([dId, cId]) => { const d = deckById(dId); const c = d && d.cards.find((x) => x.id === cId); return c ? { deck: dId, card: c } : null; }).filter(Boolean);
+    return { own, refs };
+  }
+  function buildFromItems(items, filter) {
+    const pool = items.filter((x) => filter === "all" || x.card.type === filter);
+    const now = Date.now();
+    const due = pool.filter((x) => Store.isDue(Store.cardState(x.deck, x.card.id), now))
+      .sort((a, b) => Store.cardState(a.deck, a.card.id).due - Store.cardState(b.deck, b.card.id).due);
+    const fresh = shuffle(pool.filter((x) => !Store.cardState(x.deck, x.card.id)), Math.random);
+    let list = due.concat(fresh).slice(0, 20);
+    if (!list.length) list = shuffle(pool.slice(), Math.random).sort((a, b) => Store.cardState(a.deck, a.card.id).box - Store.cardState(b.deck, b.card.id).box).slice(0, 15);
+    return list;
+  }
+  function itemStats(items) {
+    const now = Date.now();
+    let seen = 0, due = 0, sum = 0;
+    items.forEach((x) => { const cs = Store.cardState(x.deck, x.card.id); if (!cs) return; seen += 1; if (Store.isDue(cs, now)) due += 1; sum += Math.min(cs.box, 5) / 5; });
+    return { seen, due, total: items.length, pct: items.length ? Math.round(sum / items.length * 100) : 0 };
+  }
+
   function buildDeck(deck, filter) {
     const f = (x) => x.deck === deck.id && (filter === "all" || x.card.type === filter);
     const due = dueItems(f);
@@ -200,7 +224,7 @@
       { href: "#/exam", emoji: "📋", bg: "#ece8f5", title: "Prüfung", text: `${CONTENT.exam.length} Fragen im Pool`, pct: lastExamPct() },
     ];
     $app().innerHTML = `
-      ${topbar("Security Trainer", { noback: true, sub: "CISM · CISSP · CRA · MVO · OT", right: `<span class="pill-top">${st.streak.current || 0} 🔥</span>` })}
+      ${topbar("Security Trainer", { noback: true, sub: "CISM · CISSP · CISO · CRA · MVO · OT", right: `<span class="pill-top">${st.streak.current || 0} 🔥</span>` })}
       <div class="page">
         <p class="greet">${greeting()}, ${esc(USER)}</p>
         <p class="date-line">${esc(formatDate(new Date()))}</p>
@@ -267,25 +291,119 @@
     $app().innerHTML = `
       ${topbar("Decks", { noback: true, sub: `${countType("begriff")} Begriffe · ${countType("konzept")} Konzepte` })}
       <div class="page">
+        <input type="search" class="search" id="q" placeholder="🔍 Begriff in allen Decks suchen …" value="${esc(session.q || "")}" autocomplete="off" aria-label="Suche">
+        <div id="q-res"></div>
         <div class="seg">${pills.map(([k, l]) => `<button type="button" class="${f === k ? "on" : ""}" data-filter="${k}">${l}</button>`).join("")}</div>
         ${DECKS.map((d) => {
           const s = Store.deckStats(d);
           const b = d.cards.filter((c) => c.type === "begriff").length;
           const k = d.cards.length - b;
           const due = f === "all" ? s.due : d.cards.filter((c) => c.type === f && Store.isDue(Store.cardState(d.id, c.id))).length;
-          return `<a class="deck-card card" href="#/decks/${d.id}/train">
+          return `<a class="deck-card card" href="#/decks/${d.id}">
             <div class="deck-head">
               <div class="avatar" style="background:${esc(d.color)}22">${d.emoji}</div>
               <div class="meta"><h3>${esc(d.title)}</h3><p>${esc(d.blurb)}</p></div>
               ${due ? `<span class="badge danger">${due} fällig</span>` : ""}
             </div>
-            <div class="deck-counts"><span class="badge teal">${b} Begriffe</span><span class="badge gold">${k} Konzepte</span><span class="small muted">${s.seen}/${s.total} gesehen</span></div>
+            <div class="deck-counts"><span class="badge teal">${b} Begriffe</span><span class="badge gold">${k} Konzepte</span><span class="badge muted-badge">${(d.clusters || []).length} Cluster</span><span class="small muted">${s.seen}/${s.total} gesehen</span></div>
             ${pctBar(s.pct)}
           </a>`;
         }).join("")}
       </div>
       ${tabbar("decks")}`;
     $app().querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("click", () => { session.filter = b.getAttribute("data-filter"); renderDecks(); }));
+    const q = document.getElementById("q");
+    const upd = () => { session.q = q.value; document.getElementById("q-res").innerHTML = searchResults(q.value); };
+    q.addEventListener("input", upd);
+    if (session.q) upd();
+  }
+
+  function norm(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  function searchResults(raw) {
+    const q = norm(raw).trim();
+    if (q.length < 2) return "";
+    const hits = [];
+    DECKS.forEach((d) => d.cards.forEach((c) => {
+      const front = norm(c.front), aka = norm((c.aka || []).join(" | "));
+      const ws = (t) => t.startsWith(q) || t.includes(" " + q) || t.includes("(" + q) || t.includes("-" + q);
+      const score = front.includes(q) ? (front.startsWith(q) ? 4 : ws(front) ? 3 : 2) : aka.includes(q) ? (ws(aka) ? 2.5 : 1.5) : norm(c.short + " " + c.tag).includes(q) ? 1 : 0;
+      if (score) hits.push({ d, c, score });
+    }));
+    hits.sort((a, b) => b.score - a.score || a.c.front.localeCompare(b.c.front, "de"));
+    if (!hits.length) return `<p class="small muted">Keine Treffer.</p>`;
+    return `<div class="q-list">${hits.slice(0, 30).map(({ d, c }) => `<a class="list-row card q-hit" href="#/card/${d.id}/${c.id}">
+      <div class="avatar" style="background:${esc(d.color)}22">${d.emoji}</div>
+      <div class="meta"><h3>${esc(c.front)}</h3><p>${esc(c.tag)}${c.aka && c.aka.length ? " · " + esc(c.aka.slice(0, 2).join(", ")) : ""}</p></div><span class="chev">›</span></a>`).join("")}
+      ${hits.length > 30 ? `<p class="small muted">${hits.length - 30} weitere Treffer – Suche verfeinern.</p>` : ""}</div>`;
+  }
+
+  function renderDeck(id) {
+    const d = deckById(id);
+    if (!d) { location.hash = "#/decks"; return; }
+    const f = session.filter;
+    const pills = [["all", "Alle"], ["begriff", "Begriffe"], ["konzept", "Konzepte"]];
+    const s = Store.deckStats(d);
+    const b = d.cards.filter((c) => c.type === "begriff").length;
+    $app().innerHTML = `
+      ${topbar(d.title, { back: "#/decks", sub: `${b} Begriffe · ${d.cards.length - b} Konzepte · ${(d.clusters || []).length} Cluster` })}
+      <div class="page">
+        <p class="small">${esc(d.blurb)}</p>
+        ${pctBar(s.pct)}
+        <button type="button" class="btn primary wide" data-go="#/decks/${d.id}/train">▶ Ganzes Deck trainieren${s.due ? ` (${s.due} fällig)` : ""}</button>
+        <div class="seg">${pills.map(([k, l]) => `<button type="button" class="${f === k ? "on" : ""}" data-filter="${k}">${l}</button>`).join("")}</div>
+        <h2 class="sec-h">Cluster</h2>
+        ${(d.clusters || []).map((cl) => {
+          const { own, refs } = clusterItems(d, cl);
+          const ownF = own.filter((x) => f === "all" || x.card.type === f);
+          if (!ownF.length) return "";
+          const st = itemStats(own);
+          const nb = own.filter((x) => x.card.type === "begriff").length;
+          return `<a class="list-row card cl-row" href="#/decks/${d.id}/c/${cl.id}">
+            <div class="meta"><h3>${esc(cl.title)}</h3>${cl.sub ? `<p>${esc(cl.sub)}</p>` : ""}
+              <div class="deck-counts"><span class="badge teal">${nb} B</span><span class="badge gold">${own.length - nb} K</span>${refs.length ? `<span class="badge muted-badge">+${refs.length} verknüpft</span>` : ""}${st.due ? `<span class="badge danger">${st.due} fällig</span>` : ""}<span class="small muted">${st.seen}/${st.total}</span></div>
+              ${pctBar(st.pct)}</div>
+            <span class="chev">›</span></a>`;
+        }).join("")}
+      </div>
+      ${tabbar("decks")}`;
+    $app().querySelectorAll("[data-filter]").forEach((x) => x.addEventListener("click", () => { session.filter = x.getAttribute("data-filter"); renderDeck(id); }));
+  }
+
+  function routeClusterTrain(id, clId) {
+    const d = deckById(id);
+    const cl = d && (d.clusters || []).find((x) => x.id === clId);
+    if (!cl) { location.hash = d ? "#/decks/" + id : "#/decks"; return; }
+    const { own, refs } = clusterItems(d, cl);
+    const f = session.filter;
+    startTraining("cluster", buildFromItems(own.concat(refs), f), cl.title, "#/decks/" + id);
+    renderTrain();
+  }
+
+  function renderCard(deckId, cardId) {
+    const d = deckById(deckId);
+    const c = d && d.cards.find((x) => x.id === cardId);
+    if (!c) { location.hash = "#/decks"; return; }
+    const cl = (d.clusters || []).find((x) => x.id === c.cl);
+    const links = DECKS.flatMap((dd) => (dd.clusters || []).filter((x) => (x.refs || []).some(([a, b]) => a === deckId && b === cardId)).map((x) => [dd, x]));
+    $app().innerHTML = `
+      ${topbar(c.front, { back: "#/decks", sub: d.title })}
+      <div class="page">
+        <div class="flash flipped">
+          <div class="flash-badges">${typeBadge(c.type)}${reifeBadge(c)}<span class="badge muted-badge">${esc(c.tag)}</span><span class="deck-mini">${d.emoji}</span></div>
+          <h2 class="flash-front">${esc(c.front)}</h2>
+          <div class="flash-back">
+            <p class="short">${esc(c.short)}</p>
+            <p>${esc(c.explain)}</p>
+            ${c.points && c.points.length ? `<ul class="points">${c.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}
+            ${c.example ? `<div class="example"><span class="lbl">Beispiel</span>${esc(c.example)}</div>` : ""}
+            ${c.merker ? `<div class="merker"><span class="lbl">Merke</span>${esc(c.merker)}</div>` : ""}
+            ${c.aka && c.aka.length ? `<p class="small muted">Auch: ${esc(c.aka.join(" · "))}</p>` : ""}
+          </div>
+        </div>
+        ${cl ? `<button type="button" class="btn primary wide" data-go="#/decks/${d.id}/c/${cl.id}">Cluster „${esc(cl.title)}“ trainieren</button>` : ""}
+        ${links.map(([dd, x]) => `<button type="button" class="btn ghost-btn wide" data-go="#/decks/${dd.id}/c/${x.id}">Auch in: ${dd.emoji} ${esc(x.title)}</button>`).join("")}
+      </div>
+      ${tabbar("decks")}`;
   }
 
   function routeDeckTrain(id) {
@@ -294,7 +412,7 @@
     const f = session.filter;
     const list = buildDeck(d, f);
     const label = f === "all" ? "" : f === "begriff" ? " · Begriffe" : " · Konzepte";
-    startTraining("deck", list, d.title + label, "#/decks");
+    startTraining("deck", list, d.title + label, "#/decks/" + d.id);
     renderTrain();
   }
 
@@ -313,7 +431,7 @@
       <div class="page">
         ${pctBar(progress)}
         <div class="flash ${t.flipped ? "flipped" : ""}" id="flash" role="button" tabindex="0" aria-label="Karte umdrehen">
-          <div class="flash-badges">${typeBadge(c.type)}<span class="badge muted-badge">${esc(c.tag || d.title)}</span><span class="deck-mini">${d.emoji}</span></div>
+          <div class="flash-badges">${typeBadge(c.type)}${reifeBadge(c)}<span class="badge muted-badge">${esc(c.tag || d.title)}</span><span class="deck-mini">${d.emoji}</span></div>
           <h2 class="flash-front">${esc(c.front)}</h2>
           ${t.flipped ? `
             <div class="flash-back">
@@ -872,11 +990,14 @@
     const parts = h.replace(/^#\/?/, "").split("/").filter(Boolean);
     if (h !== "#/exam/run") stopTimer();
     Store.setLastRoute(h);
-    const [a, b, c] = parts;
+    const [a, b, c, e] = parts;
     if (!a) renderHome();
     else if (a === "train") renderTrain();
     else if (a === "decks" && b && c === "train") routeDeckTrain(b);
+    else if (a === "decks" && b && c === "c" && e) routeClusterTrain(b, e);
+    else if (a === "decks" && b) renderDeck(b);
     else if (a === "decks") renderDecks();
+    else if (a === "card" && b && c) renderCard(b, c);
     else if (a === "concepts" && b) renderModule(b);
     else if (a === "concepts") { session.mod = null; renderConcepts(); }
     else if (a === "scenarios" && b) renderScenario(b);
