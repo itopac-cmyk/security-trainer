@@ -1,4 +1,4 @@
-const SHELL = "sec-trainer-shell-v1";
+const SHELL = "sec-trainer-shell-v2";
 
 const PRECACHE = [
   "./",

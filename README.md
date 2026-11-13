@@ -6,15 +6,19 @@ Progressive Web App zum täglichen Lernen von Security-Begriffen **und** -Konzep
 
 | Bereich | Umfang |
 |---|---|
-| Decks | 8 (Grundlagen, Kryptografie, CISM, CISSP, CRA, MVO, OT/IEC 62443, Decision-Modelle) |
-| Karten | 256 (149 Begriffe, 107 Konzepte) |
-| Konzept-Module | 9 mit Theorie und 54 Tap-Übungen (Auswahl, Zuordnen, Reihenfolge) |
-| Szenarien | 8 mit 35 Entscheidungsfragen und Begründungen |
-| Prüfungspool | 112 Fragen, Schnelltest (10 / 6 min) und Vollprüfung (20 / 12 min), Bestehensgrenze 80 % |
+| Decks | 9 (Grundlagen, Kryptografie, CISM, CISSP, CRA, MVO, OT/IEC 62443, Decision-Modelle, CISO-Glossar) |
+| Cluster | 107 – CISSP nach den 8 CBK-Domänen, CISO-Glossar nach NIST CSF 2.0 (Govern bis Recover) |
+| Karten | 526 (299 Begriffe, 227 Konzepte) |
+| Konzept-Module | 12 mit Theorie und 72 Tap-Übungen (Auswahl, Zuordnen, Reihenfolge) |
+| Szenarien | 11 mit 47 Entscheidungsfragen und Begründungen |
+| Prüfungspool | 178 Fragen, Schnelltest (10 / 6 min) und Vollprüfung (20 / 12 min), Bestehensgrenze 80 % |
 
 ## Funktionen
 
 - **Heutiger Tagesmix**: 15–20 Karten aus allen Decks, fällige Karten zuerst, dazu neue Begriffe und Konzepte
+- Deck-Seiten mit Clustern: einzeln trainierbar, inklusive verknüpfter Karten aus anderen Decks
+- Suche über alle Karten (auch englische Fachbegriffe und Synonyme)
+- Reifegrad-Badge im CISO-Deck (etabliert, Trend, aufkommend)
 - Leitner-Wiederholung (Intervalle 0, 1, 3, 7, 14, 30 Tage; falsch → in 10 Minuten erneut)
 - Tagesziel (Standard 15, einstellbar), Serie und beste Serie
 - Fehlerbox: falsch beantwortete Fragen, gelöst nach zwei richtigen Antworten
@@ -47,4 +51,4 @@ Nach Änderungen die Cache-Version in `sw.js` erhöhen; die App lädt sich beim 
 
 ## Hinweis
 
-Lernhilfe mit eigenen Formulierungen. Verbindlich sind die jeweiligen Rechtstexte, Normen und offiziellen Prüfungsunterlagen.
+Themenauswahl orientiert an der offiziellen CISSP-Outline (gültig bis 14.4.2027 und ab 15.4.2027), dem Repository jefferywmoore/CISSP-Study-Resources (Apache-2.0) und dem CISO Security Glossary von pedrolastiko (MIT). Lernhilfe mit eigenen Formulierungen, Stand November 2026. Verbindlich sind die jeweiligen Rechtstexte, Normen und offiziellen Prüfungsunterlagen.
