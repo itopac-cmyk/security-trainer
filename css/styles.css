@@ -239,3 +239,8 @@ p { margin: 0; }
 .cl-row .deck-counts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .sec-h { font-size: 15px; margin: 6px 2px 0; color: var(--navy-soft); text-transform: uppercase; letter-spacing: .04em; }
 .badge.violet { background: #ece8f5; color: #5b4a8a; }
+
+.flash-de { margin: -4px 0 6px; color: var(--muted); font-size: 15px; }
+.pitfall { border-radius: 12px; padding: 10px 12px; font-size: 15px; background: #fbeaea; }
+.pitfall .lbl { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9a3b3b; }
+.rel-h { font-size: 15px; margin: 18px 4px 8px; color: var(--navy); }
