@@ -58,7 +58,17 @@
   function stopTimer() { if (session.timer) { clearInterval(session.timer); session.timer = null; } }
   const REIFE = { mature: ["etabliert", "teal"], trending: ["Trend", "gold"], emerging: ["aufkommend", "violet"] };
   function reifeBadge(c) { const r = c && REIFE[c.reife]; return r ? `<span class="badge ${r[1]}" title="Reifegrad">${r[0]}</span>` : ""; }
-  function typeBadge(t) { return t === "konzept" ? `<span class="badge gold">Konzept</span>` : `<span class="badge teal">Begriff</span>`; }
+  function typeBadge(t, c) { return (t === "konzept" ? `<span class="badge gold">Konzept</span>` : `<span class="badge teal">Begriff</span>`) + (c && c.cmp ? `<span class="badge violet">Vergleich</span>` : "") + (c && c.prio === 1 ? `<span class="badge muted-badge" title="Prüfungskritisch">★ Kern</span>` : ""); }
+  function cardBack(c) {
+    return `<p class="short">${esc(c.short)}</p>
+      <p>${esc(c.explain)}</p>
+      ${c.points && c.points.length ? `<ul class="points">${c.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}
+      ${c.example ? `<div class="example"><span class="lbl">Beispiel</span>${esc(c.example)}</div>` : ""}
+      ${c.pitfall ? `<div class="pitfall"><span class="lbl">Prüfungsfalle</span>${esc(c.pitfall)}</div>` : ""}
+      ${c.merker ? `<div class="merker"><span class="lbl">Merke</span>${esc(c.merker)}</div>` : ""}`;
+  }
+  function relCards(c) { return (c.rel || []).map(([dId, cId]) => { const d = deckById(dId); const x = d && d.cards.find((y) => y.id === cId); return x ? [d, x] : null; }).filter(Boolean); }
+  function frontHtml(c) { return `<h2 class="flash-front">${esc(c.front)}</h2>${c.de ? `<p class="flash-de">${esc(c.de)}</p>` : ""}`; }
   function scrollTop() { window.scrollTo(0, 0); }
 
   function topbar(title, opts) {
@@ -111,10 +121,18 @@
       .sort((a, b) => Store.cardState(a.deck, a.card.id).due - Store.cardState(b.deck, b.card.id).due);
   }
 
+  const CARD_DECK = {};
+  DECKS.forEach((d) => d.cards.forEach((c) => { CARD_DECK[c.id] = d.id; }));
+  function cmpReady(c) { return !c.cmp || (c.vs || []).every((id) => Store.cardState(CARD_DECK[id], id)); }
+  function prioOrder(list, rand) {
+    // gewichtete Reihenfolge: Kernkarten (prio 1) zuerst wahrscheinlicher, Details (prio 3) seltener
+    const w = { 1: 6, 2: 3, 3: 1 };
+    return list.map((x) => ({ x, k: Math.pow(rand(), 1 / (w[x.card.prio] || 3)) })).sort((a, b) => b.k - a.k).map((o) => o.x);
+  }
   function newItems(filterFn, rand) {
     const byDeck = {};
     DECKS.forEach((d) => {
-      byDeck[d.id] = shuffle(d.cards.filter((c) => !Store.cardState(d.id, c.id)).map((c) => ({ deck: d.id, card: c })).filter((x) => !filterFn || filterFn(x)), rand);
+      byDeck[d.id] = prioOrder(d.cards.filter((c) => !Store.cardState(d.id, c.id) && cmpReady(c)).map((c) => ({ deck: d.id, card: c })).filter((x) => !filterFn || filterFn(x)), rand);
     });
     const out = [];
     let added = true;
@@ -126,27 +144,39 @@
     return out;
   }
 
+  const PRIO_W = { 1: 6, 2: 3, 3: 1 };
+  const NEW_SHARE = 0.3;
+  function mixSize() { const goal = Store.get().settings.goal || 15; return Math.max(15, Math.min(20, goal)); }
+  function mixNewMax() { return Math.floor(mixSize() * NEW_SHARE); }
   function buildMix() {
-    const goal = Store.get().settings.goal || 15;
-    const size = Math.max(15, Math.min(20, goal));
+    // Tagesmix: Wiederholungen nach Fälligkeit und Priorität gewichtet, höchstens 30 % neue Karten
+    const size = mixSize();
+    const newMax = mixNewMax();
     const rand = rng(hashStr("mix-" + Store.todayKey()));
-    const due = dueItems().slice(0, Math.ceil(size * 0.6));
+    const now = Date.now();
+    const DAYMS = 86400000;
+    const score = (x) => { const cs = Store.cardState(x.deck, x.card.id); return (now - cs.due) / DAYMS + (PRIO_W[x.card.prio] || 3) / 2 + rand() * 0.5; };
+    const due = dueItems().map((x) => ({ x, k: score(x) })).sort((a, b) => b.k - a.k).map((o) => o.x).slice(0, size - Math.min(newMax, 2));
     const used = new Set(due.map((x) => x.card.id));
+    let review = due.slice();
+    if (review.length < size - newMax) {
+      // weitere gelernte Karten (niedrigste Box zuerst, Kernkarten bevorzugt) zur Festigung
+      const learned = allCards().filter((x) => !used.has(x.card.id) && Store.cardState(x.deck, x.card.id))
+        .map((x) => { const cs = Store.cardState(x.deck, x.card.id); return { x, k: cs.box * 2 - (PRIO_W[x.card.prio] || 3) / 3 + rand() }; })
+        .sort((a, b) => a.k - b.k).map((o) => o.x);
+      while (review.length < size - newMax && learned.length) { const x = learned.shift(); review.push(x); used.add(x.card.id); }
+    }
     const fresh = newItems(null, rand).filter((x) => !used.has(x.card.id));
     const begr = fresh.filter((x) => x.card.type === "begriff");
     const konz = fresh.filter((x) => x.card.type === "konzept");
     const picks = [];
-    while (due.length + picks.length < size && (begr.length || konz.length)) {
+    const nNew = Math.min(newMax, size - review.length);
+    while (picks.length < nNew && (begr.length || konz.length)) {
       const wantK = picks.filter((x) => x.card.type === "konzept").length < picks.length / 2 + 0.5;
       const src = (wantK && konz.length) || !begr.length ? konz : begr;
       picks.push(src.shift());
     }
-    if (due.length + picks.length < size) {
-      const rest = shuffle(allCards().filter((x) => !used.has(x.card.id) && !picks.includes(x)), rand)
-        .sort((a, b) => ((Store.cardState(a.deck, a.card.id) || {}).box || 0) - ((Store.cardState(b.deck, b.card.id) || {}).box || 0));
-      while (due.length + picks.length < size && rest.length) picks.push(rest.shift());
-    }
-    return shuffle(due.concat(picks), rand);
+    return shuffle(review.concat(picks), rand);
   }
 
   function buildDueOnly() { return dueItems().slice(0, 30); }
@@ -231,7 +261,7 @@
         ${install}
         <button type="button" class="mix-card" data-act="mix">
           <span class="mix-ico">⚡</span>
-          <span class="mix-txt"><strong>Heutiger Tagesmix</strong><span>${due ? plural(due, "fällige Karte", "fällige Karten") + " + neue Begriffe & Konzepte" : "Neue Begriffe & Konzepte aus allen Decks"}</span></span>
+          <span class="mix-txt"><strong>Heutiger Tagesmix</strong><span>${due ? plural(due, "fällige Karte", "fällige Karten") + ` + bis zu ${mixNewMax()} neue Begriffe & Konzepte` : `Wiederholung + bis zu ${mixNewMax()} neue Begriffe & Konzepte aus allen Decks`}</span></span>
           <span class="chev">›</span>
         </button>
         <div class="row two">
@@ -324,7 +354,7 @@
     if (q.length < 2) return "";
     const hits = [];
     DECKS.forEach((d) => d.cards.forEach((c) => {
-      const front = norm(c.front), aka = norm((c.aka || []).join(" | "));
+      const front = norm(c.front), aka = norm((c.aka || []).concat(c.de || [], c.cov || []).join(" | "));
       const ws = (t) => t.startsWith(q) || t.includes(" " + q) || t.includes("(" + q) || t.includes("-" + q);
       const score = front.includes(q) ? (front.startsWith(q) ? 4 : ws(front) ? 3 : 2) : aka.includes(q) ? (ws(aka) ? 2.5 : 1.5) : norm(c.short + " " + c.tag).includes(q) ? 1 : 0;
       if (score) hits.push({ d, c, score });
@@ -389,19 +419,16 @@
       ${topbar(c.front, { back: "#/decks", sub: d.title })}
       <div class="page">
         <div class="flash flipped">
-          <div class="flash-badges">${typeBadge(c.type)}${reifeBadge(c)}<span class="badge muted-badge">${esc(c.tag)}</span><span class="deck-mini">${d.emoji}</span></div>
-          <h2 class="flash-front">${esc(c.front)}</h2>
+          <div class="flash-badges">${typeBadge(c.type, c)}${reifeBadge(c)}<span class="badge muted-badge">${esc(c.tag)}</span><span class="deck-mini">${d.emoji}</span></div>
+          ${frontHtml(c)}
           <div class="flash-back">
-            <p class="short">${esc(c.short)}</p>
-            <p>${esc(c.explain)}</p>
-            ${c.points && c.points.length ? `<ul class="points">${c.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}
-            ${c.example ? `<div class="example"><span class="lbl">Beispiel</span>${esc(c.example)}</div>` : ""}
-            ${c.merker ? `<div class="merker"><span class="lbl">Merke</span>${esc(c.merker)}</div>` : ""}
+            ${cardBack(c)}
             ${c.aka && c.aka.length ? `<p class="small muted">Auch: ${esc(c.aka.join(" · "))}</p>` : ""}
           </div>
         </div>
         ${cl ? `<button type="button" class="btn primary wide" data-go="#/decks/${d.id}/c/${cl.id}">Cluster „${esc(cl.title)}“ trainieren</button>` : ""}
         ${links.map(([dd, x]) => `<button type="button" class="btn ghost-btn wide" data-go="#/decks/${dd.id}/c/${x.id}">Auch in: ${dd.emoji} ${esc(x.title)}</button>`).join("")}
+        ${relCards(c).length ? `<h3 class="rel-h">Siehe auch</h3><div class="q-list">${relCards(c).map(([dd, x]) => `<a class="list-row card q-hit" href="#/card/${dd.id}/${x.id}"><div class="avatar" style="background:${esc(dd.color)}22">${dd.emoji}</div><div class="meta"><h3>${esc(x.front)}</h3><p>${esc(x.de || x.short)}</p></div><span class="chev">›</span></a>`).join("")}</div>` : ""}
       </div>
       ${tabbar("decks")}`;
   }
@@ -431,15 +458,12 @@
       <div class="page">
         ${pctBar(progress)}
         <div class="flash ${t.flipped ? "flipped" : ""}" id="flash" role="button" tabindex="0" aria-label="Karte umdrehen">
-          <div class="flash-badges">${typeBadge(c.type)}${reifeBadge(c)}<span class="badge muted-badge">${esc(c.tag || d.title)}</span><span class="deck-mini">${d.emoji}</span></div>
-          <h2 class="flash-front">${esc(c.front)}</h2>
+          <div class="flash-badges">${typeBadge(c.type, c)}${reifeBadge(c)}<span class="badge muted-badge">${esc(c.tag || d.title)}</span><span class="deck-mini">${d.emoji}</span></div>
+          ${frontHtml(c)}
           ${t.flipped ? `
             <div class="flash-back">
-              <p class="short">${esc(c.short)}</p>
-              <p>${esc(c.explain)}</p>
-              ${c.points && c.points.length ? `<ul class="points">${c.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}
-              ${c.example ? `<div class="example"><span class="lbl">Beispiel</span>${esc(c.example)}</div>` : ""}
-              ${c.merker ? `<div class="merker"><span class="lbl">Merke</span>${esc(c.merker)}</div>` : ""}
+              ${cardBack(c)}
+              ${relCards(c).length ? `<p class="small muted">Siehe auch: ${esc(relCards(c).map(([, x]) => x.front).join(" · "))}</p>` : ""}
             </div>` : `<p class="tap-hint">Tippen zum Aufdecken</p>`}
         </div>
         ${t.flipped ? `<div class="grade-row">
@@ -964,7 +988,7 @@
             <span class="step-val">${st.settings.goal}</span>
             <button type="button" class="btn ghost-btn" data-step="5">+5</button>
           </div>
-          <p class="small muted">Der Tagesmix umfasst 15–20 Karten. Jede bewertete Karte, Übung und Szenariofrage zählt zum Ziel.</p>
+          <p class="small muted">Der Tagesmix umfasst bis zu 15–20 Karten, davon höchstens 30 % neue; Kernkarten werden bevorzugt. Jede bewertete Karte, Übung und Szenariofrage zählt zum Ziel.</p>
         </div>
         <div class="card">
           <h3 class="mini-h">Inhalte</h3>
