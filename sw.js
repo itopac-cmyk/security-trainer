@@ -1,4 +1,4 @@
-const SHELL = "sec-trainer-shell-v2";
+const SHELL = "sec-trainer-shell-v3";
 
 const PRECACHE = [
   "./",
@@ -6,6 +6,15 @@ const PRECACHE = [
   "./manifest.json",
   "./css/styles.css",
   "./js/content.js",
+  "./js/decks/grundlagen.js",
+  "./js/decks/krypto.js",
+  "./js/decks/cism.js",
+  "./js/decks/cissp.js",
+  "./js/decks/cra.js",
+  "./js/decks/mvo.js",
+  "./js/decks/ot.js",
+  "./js/decks/decision.js",
+  "./js/decks/ciso.js",
   "./js/storage.js",
   "./js/app.js",
   "./fonts/carlito-regular.woff",

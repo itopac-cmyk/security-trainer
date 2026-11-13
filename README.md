@@ -7,17 +7,17 @@ Progressive Web App zum täglichen Lernen von Security-Begriffen **und** -Konzep
 | Bereich | Umfang |
 |---|---|
 | Decks | 9 (Grundlagen, Kryptografie, CISM, CISSP, CRA, MVO, OT/IEC 62443, Decision-Modelle, CISO-Glossar) |
-| Cluster | 107 – CISSP nach den 8 CBK-Domänen, CISO-Glossar nach NIST CSF 2.0 (Govern bis Recover) |
-| Karten | 526 (299 Begriffe, 227 Konzepte) |
+| Cluster | 150 (max. 22 Karten je Cluster) – CISSP in 30 Untergruppen der 8 CBK-Domänen, CISO-Glossar nach NIST CSF 2.0 (Govern bis Recover) |
+| Karten | 898 (604 Begriffe, 294 Konzepte, davon 67 Vergleichskarten) – englischer Originalbegriff als Titel, Erklärung auf Deutsch, Beispiel als Mini-Fall |
 | Konzept-Module | 12 mit Theorie und 72 Tap-Übungen (Auswahl, Zuordnen, Reihenfolge) |
-| Szenarien | 11 mit 47 Entscheidungsfragen und Begründungen |
-| Prüfungspool | 178 Fragen, Schnelltest (10 / 6 min) und Vollprüfung (20 / 12 min), Bestehensgrenze 80 % |
+| Szenarien | 20 mit 114 Entscheidungsfragen und Begründungen |
+| Prüfungspool | 390 Fragen, Schnelltest (10 / 6 min) und Vollprüfung (20 / 12 min), Bestehensgrenze 80 % |
 
 ## Funktionen
 
-- **Heutiger Tagesmix**: 15–20 Karten aus allen Decks, fällige Karten zuerst, dazu neue Begriffe und Konzepte
+- **Heutiger Tagesmix**: bis zu 15–20 Karten aus allen Decks; Wiederholungen nach Fälligkeit und Priorität gewichtet (Kernkarten bevorzugt), höchstens 30 % neue Begriffe und Konzepte
 - Deck-Seiten mit Clustern: einzeln trainierbar, inklusive verknüpfter Karten aus anderen Decks
-- Suche über alle Karten (auch englische Fachbegriffe und Synonyme)
+- Suche über alle Karten (englische Fachbegriffe, deutsche Bezeichnungen, Synonyme und eingeordnete Unterbegriffe)
 - Reifegrad-Badge im CISO-Deck (etabliert, Trend, aufkommend)
 - Leitner-Wiederholung (Intervalle 0, 1, 3, 7, 14, 30 Tage; falsch → in 10 Minuten erneut)
 - Tagesziel (Standard 15, einstellbar), Serie und beste Serie
@@ -32,7 +32,8 @@ index.html, manifest.json, sw.js
 css/styles.css
 fonts/        Carlito (SIL Open Font License)
 icons/        App-Icons
-js/content.js Lerninhalte
+js/content.js Kerninhalte (Deck-Übersicht, Cluster, Module, Szenarien, Prüfung)
+js/decks/     Karten je Deck (9 Dateien)
 js/storage.js Speicher, Leitner-Logik, Serie, Fehlerbox
 js/app.js     Oberfläche und Routing
 ```
