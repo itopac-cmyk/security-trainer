@@ -229,3 +229,13 @@ p { margin: 0; }
 
 @media (min-width: 461px) { #app { box-shadow: 0 0 40px rgba(0,0,0,.2); } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Suche, Cluster, Reifegrad */
+.search { width: 100%; padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); color: var(--navy); font-size: 16px; }
+.search:focus { outline: none; border-color: var(--teal); }
+.q-list { display: flex; flex-direction: column; gap: 8px; }
+.q-hit .meta p, .cl-row .meta p { overflow: hidden; text-overflow: ellipsis; }
+.cl-row .meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.cl-row .deck-counts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sec-h { font-size: 15px; margin: 6px 2px 0; color: var(--navy-soft); text-transform: uppercase; letter-spacing: .04em; }
+.badge.violet { background: #ece8f5; color: #5b4a8a; }
