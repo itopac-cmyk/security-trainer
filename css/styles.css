@@ -244,3 +244,8 @@ p { margin: 0; }
 .pitfall { border-radius: 12px; padding: 10px 12px; font-size: 15px; background: #fbeaea; }
 .pitfall .lbl { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9a3b3b; }
 .rel-h { font-size: 15px; margin: 18px 4px 8px; color: var(--navy); }
+
+/* v4: Quellenhinweis und Verwechslungspartner */
+.src-note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.pitfall.conf { background: #f0ebf8; }
+.pitfall.conf .lbl { color: #5b3f94; }
