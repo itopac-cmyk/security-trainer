@@ -65,7 +65,9 @@
       ${c.points && c.points.length ? `<ul class="points">${c.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : ""}
       ${c.example ? `<div class="example"><span class="lbl">Beispiel</span>${esc(c.example)}</div>` : ""}
       ${c.pitfall ? `<div class="pitfall"><span class="lbl">Prüfungsfalle</span>${esc(c.pitfall)}</div>` : ""}
-      ${c.merker ? `<div class="merker"><span class="lbl">Merke</span>${esc(c.merker)}</div>` : ""}`;
+      ${c.conf ? `<div class="pitfall conf"><span class="lbl">Nicht verwechseln</span>${esc(c.conf)}</div>` : ""}
+      ${c.merker ? `<div class="merker"><span class="lbl">Merke</span>${esc(c.merker)}</div>` : ""}
+      ${c.src ? `<p class="src-note">Quelle: ${esc(c.src)}</p>` : ""}`;
   }
   function relCards(c) { return (c.rel || []).map(([dId, cId]) => { const d = deckById(dId); const x = d && d.cards.find((y) => y.id === cId); return x ? [d, x] : null; }).filter(Boolean); }
   function frontHtml(c) { return `<h2 class="flash-front">${esc(c.front)}</h2>${c.de ? `<p class="flash-de">${esc(c.de)}</p>` : ""}`; }
