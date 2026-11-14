@@ -1,4 +1,4 @@
-const SHELL = "sec-trainer-shell-v3";
+const SHELL = "sec-trainer-shell-v4";
 
 const PRECACHE = [
   "./",
@@ -15,6 +15,7 @@ const PRECACHE = [
   "./js/decks/ot.js",
   "./js/decks/decision.js",
   "./js/decks/ciso.js",
+  "./js/decks/praxis.js",
   "./js/storage.js",
   "./js/app.js",
   "./fonts/carlito-regular.woff",
